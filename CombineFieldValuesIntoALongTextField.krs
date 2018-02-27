@@ -1,0 +1,177 @@
+<script>
+	<name>Combine field values into a long text field</name>
+	<version>1</version>
+	<description>This workspace level script combines the field values from 3 single choice fields into a long text field.  If the single choice field has a value of "Fill in the blank", the field value from the selected text field is used in place of the choice field value. KCD_1041989</description>
+	<category>Case Functionality</category>
+	<input orientation="horizontal">
+		<search id="iSearch" name="Saved Search:" />
+		<sql id="iChoiceField1" name="Choice Field 1:">
+			SELECT ID = CodeTypeID,
+				Display = DisplayName
+			FROM EDDSDBO.Field
+			WHERE FieldTypeID = 5
+				AND FieldCategoryID = 0
+				AND FieldArtifactTypeID = 10
+			ORDER BY DisplayName
+		</sql>
+		<field id="iTextField1" name="Text Field 1:">
+			<filters>
+				<type>0</type>
+				<type>4</type>
+				<category>0</category>
+			</filters>
+		</field>
+		<sql id="iChoiceField2" name="Choice Field 2:">
+			SELECT ID = CodeTypeID,
+				Display = DisplayName
+			FROM EDDSDBO.Field
+			WHERE FieldTypeID = 5
+				AND FieldCategoryID = 0
+				AND FieldArtifactTypeID = 10
+			ORDER BY DisplayName
+		</sql>
+		<field id="iTextField2" name="Text Field 2:">
+			<filters>
+				<type>0</type>
+				<type>4</type>
+				<category>0</category>
+			</filters>
+		</field>
+		<sql id="iChoiceField3" name="Choice Field 3:">
+			SELECT ID = CodeTypeID,
+				Display = DisplayName
+			FROM EDDSDBO.Field
+			WHERE FieldTypeID = 5
+				AND FieldCategoryID = 0
+				AND FieldArtifactTypeID = 10
+			ORDER BY DisplayName
+		</sql>
+		<field id="iTextField3" name="Text Field 3:">
+			<filters>
+				<type>0</type>
+				<type>4</type>
+				<category>0</category>
+			</filters>
+		</field>
+		<field id="iDestinationField" name="Destination Field:">
+			<filters>
+				<type>4</type>
+				<category>0</category>
+			</filters>
+		</field>
+	</input>
+	<display type="itemlist" />
+	<action returns="table" timeout="1200"><![CDATA[
+	
+/*
+	Created by: KJS
+	Created on: 6/26/2014
+	Description:  This workspace level script combines the choice name for each of the 3 choice fields and writes that combined value to a long
+		text field.  If the choice name is "Fill in the blank", then we use the value in the corresponding text field instead of the choice
+		name.  The long text field will only be written to if all of the choice fields have a value.  If the choice field is set to "Fill in the
+		blank", the text field must have a value, otherwise the long text field will not be written to.  The long text field will not be
+		overwritten; it will only be populated when it's not set.
+*/
+
+IF NOT OBJECT_ID('EDDSDBO.KCD_1041989_SearchDocs') IS NULL BEGIN DROP TABLE EDDSDBO.KCD_1041989_SearchDocs END
+CREATE TABLE EDDSDBO.KCD_1041989_SearchDocs
+	(
+		[ID] INT NOT NULL IDENTITY(1,1) 
+		,DocArtifactID INT PRIMARY KEY
+		,TextField1Value NVARCHAR(MAX)
+		,TextField2Value NVARCHAR(MAX)
+		,TextField3Value NVARCHAR(MAX)
+		,LongTextFieldValue NVARCHAR(MAX)
+	)
+
+INSERT INTO EDDSDBO.KCD_1041989_SearchDocs(DocArtifactID,TextField1Value,TextField2Value,TextField3Value,LongTextFieldValue)
+SELECT 
+	[Document].ArtifactID
+	,ISNULL([Document].#iTextField1#,'')
+	,ISNULL([Document].#iTextField2#,'')
+	,ISNULL([Document].#iTextField3#,'')
+	,ISNULL(RTRIM(LTRIM([Document].#iDestinationField#)),'')
+#iSearch#
+
+DECLARE @searchDocCount INT SET @searchDocCount = (SELECT COUNT([ID]) FROM EDDSDBO.KCD_1041989_SearchDocs)
+
+IF NOT OBJECT_ID('EDDSDBO.KCD_1041989_Docs') IS NULL BEGIN DROP TABLE EDDSDBO.KCD_1041989_Docs END
+CREATE TABLE EDDSDBO.KCD_1041989_Docs
+	(
+		[ID] INT NOT NULL IDENTITY(1,1) 
+		,DocArtifactID INT PRIMARY KEY
+		,Field1Value NVARCHAR(MAX)
+		,Field2Value NVARCHAR(MAX)
+		,Field3Value NVARCHAR(MAX)
+	)
+
+INSERT INTO EDDSDBO.KCD_1041989_Docs(DocArtifactID, Field1Value, Field2Value, Field3Value)
+SELECT 
+	S.DocArtifactID
+	,CASE C1.Name
+		WHEN 'Fill in the blank' THEN S.TextField1Value
+		ELSE ISNULL(C1.Name,'')
+		END
+	,CASE C2.Name
+		WHEN 'Fill in the blank' THEN S.TextField2Value
+		ELSE ISNULL(C2.Name,'')
+		END
+	,CASE C3.Name
+		WHEN 'Fill in the blank' THEN S.TextField3Value
+		ELSE ISNULL(C3.Name,'')
+		END
+FROM EDDSDBO.KCD_1041989_SearchDocs S 
+	LEFT JOIN EDDSDBO.ZCodeArtifact_#iChoiceField1# CA1 ON S.DocArtifactID = CA1.AssociatedArtifactID
+	LEFT JOIN EDDSDBO.Code C1 WITH(NOLOCK) ON C1.ArtifactID = CA1.CodeArtifactID
+	LEFT JOIN EDDSDBO.ZCodeArtifact_#iChoiceField2# CA2 ON S.DocArtifactID = CA2.AssociatedArtifactID
+	LEFT JOIN EDDSDBO.Code C2 WITH(NOLOCK) ON C2.ArtifactID = CA2.CodeArtifactID
+	LEFT JOIN EDDSDBO.ZCodeArtifact_#iChoiceField3# CA3 ON S.DocArtifactID = CA3.AssociatedArtifactID
+	LEFT JOIN EDDSDBO.Code C3 WITH(NOLOCK) ON C3.ArtifactID = CA3.CodeArtifactID
+WHERE LEN(S.LongTextFieldValue) = 0 --only docs where choice field is not set
+
+IF NOT OBJECT_ID('EDDSDBO.KCD_1041989_DocsToUpdate') IS NULL BEGIN DROP TABLE EDDSDBO.KCD_1041989_DocsToUpdate END
+CREATE TABLE EDDSDBO.KCD_1041989_DocsToUpdate
+	(
+		[ID] INT NOT NULL IDENTITY(1,1) 
+		,DocArtifactID INT PRIMARY KEY
+		,LongTextValue NVARCHAR(MAX)
+	)
+
+INSERT INTO EDDSDBO.KCD_1041989_DocsToUpdate(DocArtifactID, LongTextValue)
+SELECT 
+	DocArtifactID
+	,Field1Value + ' ' + Field2Value + ' ' + Field3Value
+FROM EDDSDBO.KCD_1041989_Docs
+WHERE --All choice fields must have a value
+	LEN(Field1Value) > 0
+	AND LEN(Field2Value) > 0
+	AND LEN(Field3Value) > 0
+
+--Update in batches
+DECLARE @counter INT SET @counter = 0
+DECLARE @batchSize INT SET @batchSize = 100000
+DECLARE @updatedCount INT SET @updatedCount = 0
+DECLARE @totalCount INT SET @totalCount = (SELECT COUNT([ID]) FROM EDDSDBO.KCD_1041989_DocsToUpdate)
+
+WHILE @counter < @totalCount
+BEGIN
+	UPDATE D SET D.#iDestinationField# = K.LongTextValue
+	FROM EDDSDBO.KCD_1041989_DocsToUpdate K	
+		INNER JOIN EDDSDBO.Document D ON K.DocArtifactID = D.ArtifactID
+	WHERE [ID] > @counter
+		AND [ID] <= @counter + @batchSize
+
+	SET @updatedCount = @updatedCount + @@ROWCOUNT
+	SET @counter = @counter + @batchSize
+END
+
+SELECT 
+	@updatedCount [Number of Documents Updated]
+	,@searchDocCount - @updatedCount [Number of Documents not Updated]
+
+IF NOT OBJECT_ID('EDDSDBO.KCD_1041989_Docs') IS NULL BEGIN DROP TABLE EDDSDBO.KCD_1041989_Docs END
+IF NOT OBJECT_ID('EDDSDBO.KCD_1041989_SearchDocs') IS NULL BEGIN DROP TABLE EDDSDBO.KCD_1041989_SearchDocs END
+IF NOT OBJECT_ID('EDDSDBO.KCD_1041989_DocsToUpdate') IS NULL BEGIN DROP TABLE EDDSDBO.KCD_1041989_DocsToUpdate END
+
+	]]></action>
+</script>
