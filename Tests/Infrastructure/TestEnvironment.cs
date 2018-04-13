@@ -38,8 +38,8 @@ namespace CreateObjectAfterFieldParsing.Infrastructure
 
         protected internal void Dispose(bool disposing)
         {
-            //Driver.Close();
-            //Driver.Dispose();
+            Driver.Close();
+            Driver.Dispose();
         }
 
         ~TestEnvironment()

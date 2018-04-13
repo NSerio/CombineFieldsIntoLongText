@@ -16,7 +16,7 @@ namespace CreateObjectAfterFieldParsing
         }
 
         [Test]
-        [Category("UC1 - CombineField")]
+        [Category("UC1 - CombineFieldTest")]
         public void RunScriptCombineFieldTest()
         {
             // -- arrange: dedicated to collect input data

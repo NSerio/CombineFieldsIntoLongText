@@ -138,7 +138,7 @@ namespace CreateObjectAfterFieldParsing
         {
             using (var client = TestEnvironment.Instance.ServicesManager.CreateProxy<IRSAPIClient>(Relativity.API.ExecutionIdentity.System))
             {
-                Relativity.Test.Helpers.Application.ApplicationHelpers.ImportApplication(client, testWorkspaceID, true, @"J:\Automation\CombineFieldsIntoLongText\RA_CombineFieldsIntoLongText_20180406213208.rap", "CombineFieldsIntoLongText");
+                Relativity.Test.Helpers.Application.ApplicationHelpers.ImportApplication(client, testWorkspaceID, true, @"\RA_CombineFieldsIntoLongText_20180406213208.rap");
             }
         }
 
@@ -166,7 +166,7 @@ namespace CreateObjectAfterFieldParsing
             var selectElementSaveSearch = new SelectElement(ComboboxTemplate);
             selectElementSaveSearch.SelectByValue("_s1");
             Thread.Sleep(0500);
-            Button.Click();
+            driver.FindElement(By.LinkText(ConfigurationHelper.TEST_WORKSPACE_NAME)).Click();
         }
 
         public void ClickTabAdmin()
